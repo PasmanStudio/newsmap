@@ -133,10 +133,13 @@ export function GlobeViewer({ selectedCountry, onSelectCountry, locale = "es" }:
     [selectedCountry]
   );
 
+  // Strip diacritics: globe.gl canvas font doesn't support accented chars
+  // (e.g. "Perú" → "Peru"). Full name still appears in the modal.
   const labelText = useCallback(
     (d: object) => {
       const alpha2 = (d as MarkerDatum).alpha2;
-      return displayNames.of(alpha2) ?? alpha2;
+      const name   = displayNames.of(alpha2) ?? alpha2;
+      return name.normalize("NFD").replace(/\p{Diacritic}/gu, "");
     },
     [displayNames]
   );
@@ -164,7 +167,7 @@ export function GlobeViewer({ selectedCountry, onSelectCountry, locale = "es" }:
         ref={globeRef}
         width={size.width}
         height={size.height}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
         backgroundColor="rgba(0,0,0,0)"
         atmosphereColor="#60a5fa"
         atmosphereAltitude={0.14}
@@ -178,7 +181,7 @@ export function GlobeViewer({ selectedCountry, onSelectCountry, locale = "es" }:
         /* Centre dot — clickable target */
         pointsData={MARKERS}
         pointAltitude={0.015}
-        pointRadius={0.6}
+        pointRadius={1.4}
         pointColor={pointColor}
         onPointClick={handlePointClick}
         onPointHover={handlePointHover}

@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { SectionKey } from "@/lib/db/schema";
 import { ALPHA2_TO_SLUG } from "@/lib/countries";
-import { FLAG_MAP } from "@/lib/utils/flags";
 
 /* ── Lazy-load the 3-D globe (Three.js — SSR incompatible) ─────────────── */
 const GlobeViewer = dynamic(
@@ -166,10 +165,6 @@ export function WorldMap({ locale }: Props) {
     ? new Intl.DisplayNames([locale], { type: "region" }).of(selectedCountry)
     : null;
 
-  const selectedFlag = selectedCountry
-    ? (FLAG_MAP[selectedCountry] ?? "🌐")
-    : null;
-
   const newsSlug = selectedCountry ? ALPHA2_TO_SLUG[selectedCountry] : null;
 
   /* ── Render ───────────────────────────────────────────────────────────── */
@@ -216,37 +211,42 @@ export function WorldMap({ locale }: Props) {
             </button>
 
             {/* Header */}
-            <div className="pt-7 pb-5 px-6 text-center border-b border-white/8">
-              {/* Flag circle */}
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center text-4xl"
-                   style={{ background: "radial-gradient(circle, rgba(96,165,250,0.15) 0%, rgba(14,25,50,0.6) 100%)", border: "1px solid rgba(96,165,250,0.2)" }}>
-                {selectedFlag}
+            <div className="pt-5 pb-4 px-5 border-b border-white/8">
+              <div className="flex items-center gap-3">
+                {/* Country code badge — flag emojis render as letters on Windows,
+                    so we use a styled gradient circle with the ISO code instead */}
+                <div className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white tracking-wider select-none"
+                     style={{ background: "linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%)", border: "1px solid rgba(96,165,250,0.25)" }}>
+                  {selectedCountry}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base font-bold text-white leading-tight truncate">
+                    {selectedCountryName ?? selectedCountry}
+                  </h2>
+                  {!loadingSources && (
+                    <p className="text-xs text-white/40 mt-0.5">
+                      {t("sources_available", { count: sources.length })}
+                    </p>
+                  )}
+                </div>
+
+                {/* "Ver noticias" link */}
+                {newsSlug && (
+                  <a
+                    href={`/${locale}/news/${newsSlug}`}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20 hover:bg-blue-500/25 transition-colors whitespace-nowrap"
+                  >
+                    {t("view_news")} →
+                  </a>
+                )}
               </div>
-
-              <h2 className="text-lg font-bold text-white leading-tight">
-                {selectedCountryName ?? selectedCountry}
-              </h2>
-
-              {!loadingSources && (
-                <p className="mt-1 text-sm text-white/40">
-                  {t("sources_available", { count: sources.length })}
-                </p>
-              )}
-
-              {/* "Ver noticias" link */}
-              {newsSlug && (
-                <a
-                  href={`/${locale}/news/${newsSlug}`}
-                  className="inline-flex items-center gap-1 mt-3 px-4 py-1.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20 hover:bg-blue-500/25 transition-colors"
-                >
-                  {t("view_news")} →
-                </a>
-              )}
             </div>
 
             {/* Source list */}
+            {/* Max ~4.5 rows visible before scroll */}
             <div className="overflow-y-auto overscroll-contain"
-                 style={{ maxHeight: "min(55vh, 380px)" }}>
+                 style={{ maxHeight: "min(45vh, 300px)" }}>
               {loadingSources ? (
                 <div className="divide-y divide-white/5">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -263,7 +263,7 @@ export function WorldMap({ locale }: Props) {
               ) : (
                 <div className="divide-y divide-white/5">
                   {sources.map((source) => (
-                    <div key={source.id} className="px-5 py-3">
+                    <div key={source.id} className="px-4 py-2.5">
                       {/* Source row */}
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-white/80 flex-1 truncate">
