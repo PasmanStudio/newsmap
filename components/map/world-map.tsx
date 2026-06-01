@@ -1,42 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  ZoomableGroup,
-} from "react-simple-maps";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { SectionKey } from "@/lib/db/schema";
 import { ALPHA2_TO_SLUG } from "@/lib/countries";
 
-const GEO_URL =
-  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+/* ── Lazy-load the 3-D globe (Three.js — SSR incompatible) ─────────────────
+   The heavy WebGL bundle only loads when the user navigates to /map.        */
+const GlobeViewer = dynamic(
+  () => import("./globe-viewer").then((m) => ({ default: m.GlobeViewer })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-sm text-[var(--color-text-3)] animate-pulse">
+          Cargando globo…
+        </span>
+      </div>
+    ),
+  }
+);
 
-// Map ISO numeric country codes → ISO alpha-2
-const NUMERIC_TO_ALPHA2: Record<string, string> = {
-  // Original
-  "032": "AR", "076": "BR", "152": "CL", "170": "CO", "604": "PE",
-  "484": "MX", "840": "US", "826": "GB", "724": "ES", "250": "FR",
-  "276": "DE", "380": "IT", "634": "QA",
-  // New LATAM
-  "862": "VE", "218": "EC", "600": "PY", "068": "BO", "320": "GT",
-  "188": "CR", "591": "PA", "214": "DO", "222": "SV",
-  // New Europe
-  "620": "PT", "528": "NL", "752": "SE",
-};
-
-const COUNTRIES_WITH_SOURCES = new Set([
-  // Original
-  "AR", "BR", "CL", "CO", "PE", "MX", "US", "GB", "ES", "FR", "DE", "IT", "QA",
-  // New LATAM
-  "VE", "EC", "PY", "BO", "GT", "CR", "PA", "DO", "SV",
-  // New Europe
-  "PT", "NL", "SE",
-]);
-
-// Section chip colors (mirrors SectionChip component)
+/* ── Section chip colours (mirrors SectionChip component) ───────────────── */
 const SECTION_COLORS: Record<SectionKey, string> = {
   sports:        "bg-blue-500/20 text-blue-500 border-blue-500/30",
   politics:      "bg-red-500/20 text-red-500 border-red-500/30",
@@ -52,6 +38,8 @@ const SECTION_COLORS: Record<SectionKey, string> = {
 const INACTIVE_SECTION =
   "bg-[var(--color-bg-3)] text-[var(--color-text-3)] border-[var(--color-border)]";
 
+/* ── Types ──────────────────────────────────────────────────────────────── */
+
 type Source = {
   id: string;
   name: string;
@@ -59,15 +47,15 @@ type Source = {
   country_code: string;
   logo_url: string | null;
   subscribed: boolean;
-  /** Distinct section_keys available from this source's feeds */
   available_sections: string[];
-  /** NULL = all sections. Array = user selected these specific sections. */
   subscription_sections: string[] | null;
 };
 
 type Props = {
   locale: string;
 };
+
+/* ── Component ──────────────────────────────────────────────────────────── */
 
 export function WorldMap({ locale }: Props) {
   const t = useTranslations("Map");
@@ -77,13 +65,9 @@ export function WorldMap({ locale }: Props) {
   const [sources, setSources] = useState<Source[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
   const [subscribing, setSubscribing] = useState<string | null>(null);
-  /** source_id → loading (section PATCH in flight) */
   const [updatingSections, setUpdatingSections] = useState<Record<string, boolean>>({});
-  /** Controlled zoom state for the map */
-  const [zoom, setZoom] = useState(1);
-  const [center, setCenter] = useState<[number, number]>([0, 20]);
 
-  // ── Data loading ────────────────────────────────────────────────────────────
+  /* ── Data loading ──────────────────────────────────────────────────────── */
 
   async function loadSources(countryCode: string) {
     setLoadingSources(true);
@@ -97,14 +81,12 @@ export function WorldMap({ locale }: Props) {
     }
   }
 
-  function handleCountryClick(numericId: string) {
-    const alpha2 = NUMERIC_TO_ALPHA2[numericId];
-    if (!alpha2 || !COUNTRIES_WITH_SOURCES.has(alpha2)) return;
+  function handleSelectCountry(alpha2: string) {
     setSelectedCountry(alpha2);
     loadSources(alpha2);
   }
 
-  // ── Subscribe / unsubscribe ─────────────────────────────────────────────────
+  /* ── Subscribe / unsubscribe ───────────────────────────────────────────── */
 
   async function toggleSubscription(source: Source) {
     setSubscribing(source.id);
@@ -141,29 +123,26 @@ export function WorldMap({ locale }: Props) {
     }
   }
 
-  // ── Section toggle ──────────────────────────────────────────────────────────
+  /* ── Section toggle ────────────────────────────────────────────────────── */
 
   async function toggleSection(source: Source, sectionKey: string) {
     if (updatingSections[source.id]) return;
 
-    const current = source.subscription_sections; // null = all sections
+    const current = source.subscription_sections;
     const all = source.available_sections;
     let next: string[] | null;
 
     if (current === null) {
-      // Currently "all" — clicking a section deselects it, keeping the rest
       const rest = all.filter((s) => s !== sectionKey);
-      if (rest.length === 0) return; // can't deselect the only section
+      if (rest.length === 0) return;
       next = rest;
     } else {
       const alreadySelected = current.includes(sectionKey);
       if (alreadySelected) {
-        // Deselect: remove from array
         const newSections = current.filter((s) => s !== sectionKey);
-        if (newSections.length === 0) return; // prevent empty selection
+        if (newSections.length === 0) return;
         next = newSections;
       } else {
-        // Select: add to array; collapse to null if all sections are now selected
         const newSections = [...current, sectionKey];
         next = newSections.length >= all.length ? null : newSections;
       }
@@ -186,7 +165,7 @@ export function WorldMap({ locale }: Props) {
     }
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  /* ── Helpers ───────────────────────────────────────────────────────────── */
 
   function isSectionActive(source: Source, key: string): boolean {
     return (
@@ -207,102 +186,28 @@ export function WorldMap({ locale }: Props) {
     ? new Intl.DisplayNames([locale], { type: "region" }).of(selectedCountry)
     : null;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:h-full">
-      {/* ── Map canvas ──────────────────────────────────────────────────── */}
-      <div className="relative aspect-[16/9] lg:aspect-auto lg:flex-1 rounded-[var(--radius-card)] overflow-hidden bg-[var(--color-bg-2)] border border-[var(--color-border)]">
-        {/* Zoom controls */}
-        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
-          <button
-            onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}
-            className="w-7 h-7 rounded bg-[var(--color-bg-2)] border border-[var(--color-border)] text-[var(--color-text-2)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-3)] text-sm font-bold flex items-center justify-center transition-colors shadow-sm"
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-          <button
-            onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
-            className="w-7 h-7 rounded bg-[var(--color-bg-2)] border border-[var(--color-border)] text-[var(--color-text-2)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-3)] text-sm font-bold flex items-center justify-center transition-colors shadow-sm"
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <button
-            onClick={() => { setZoom(1); setCenter([0, 20]); }}
-            className="w-7 h-7 rounded bg-[var(--color-bg-2)] border border-[var(--color-border)] text-[var(--color-text-2)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-3)] text-[10px] font-bold flex items-center justify-center transition-colors shadow-sm"
-            aria-label="Reset zoom"
-          >
-            ⌂
-          </button>
-        </div>
-        <ComposableMap
-          projectionConfig={{ scale: 147 }}
-          style={{ width: "100%", height: "100%", minHeight: 260 }}
-        >
-          <ZoomableGroup
-            zoom={zoom}
-            center={center}
-            onMoveEnd={({ zoom: z, coordinates }) => {
-              setZoom(z);
-              setCenter(coordinates as [number, number]);
-            }}
-          >
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const numericId = geo.id as string;
-                  const alpha2 = NUMERIC_TO_ALPHA2[numericId];
-                  const hasSources = alpha2
-                    ? COUNTRIES_WITH_SOURCES.has(alpha2)
-                    : false;
-                  const isSelected = alpha2 === selectedCountry;
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      onClick={() => handleCountryClick(numericId)}
-                      style={{
-                        default: {
-                          fill: isSelected
-                            ? "var(--color-blue)"
-                            : hasSources
-                            ? "var(--color-bg-3)"
-                            : "var(--color-border)",
-                          stroke: "var(--color-border)",
-                          strokeWidth: 0.5,
-                          outline: "none",
-                          cursor: hasSources ? "pointer" : "default",
-                        },
-                        hover: {
-                          fill: hasSources
-                            ? isSelected
-                              ? "var(--color-blue)"
-                              : "var(--color-text-3)"
-                            : "var(--color-border)",
-                          stroke: "var(--color-border)",
-                          strokeWidth: 0.5,
-                          outline: "none",
-                          cursor: hasSources ? "pointer" : "default",
-                        },
-                        pressed: {
-                          fill: "var(--color-blue)",
-                          stroke: "var(--color-border)",
-                          strokeWidth: 0.5,
-                          outline: "none",
-                        },
-                      }}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
-        </ComposableMap>
+
+      {/* ── Globe canvas ──────────────────────────────────────────────────── */}
+      <div className="relative aspect-square lg:aspect-auto lg:flex-1 rounded-[var(--radius-card)] overflow-hidden bg-[#05081a] border border-[var(--color-border)]">
+        <GlobeViewer
+          selectedCountry={selectedCountry}
+          onSelectCountry={handleSelectCountry}
+          locale={locale}
+        />
+
+        {/* Hint — fades once a country is selected */}
+        {!selectedCountry && (
+          <p className="pointer-events-none absolute bottom-3 left-0 right-0 text-center text-[11px] text-blue-300/60 select-none">
+            {t("subtitle")}
+          </p>
+        )}
       </div>
 
-      {/* ── Source panel ────────────────────────────────────────────────── */}
+      {/* ── Source panel ──────────────────────────────────────────────────── */}
       <div className="h-[380px] lg:h-full lg:w-72 rounded-[var(--radius-card)] bg-[var(--color-bg-2)] border border-[var(--color-border)] overflow-hidden">
         {!selectedCountry ? (
           <div className="h-full flex items-center justify-center p-6 text-center">
@@ -375,41 +280,39 @@ export function WorldMap({ locale }: Props) {
                       </button>
                     </div>
 
-                    {/* Section chips — shown when subscribed and source has at least one known section */}
-                    {source.subscribed &&
-                      source.available_sections.length > 0 && (
-                        <div
-                          className={`px-4 pb-3 flex flex-wrap gap-1.5 transition-opacity ${
-                            updatingSections[source.id] ? "opacity-50" : ""
-                          }`}
-                        >
-                          {source.available_sections.map((key) => {
-                            const active = isSectionActive(source, key);
-                            const isOnly = isOnlySection(source, key);
-                            const colorClass =
-                              active
-                                ? SECTION_COLORS[key as SectionKey] ??
-                                  "bg-gray-500/20 text-gray-500 border-gray-500/30"
-                                : INACTIVE_SECTION;
-                            return (
-                              <button
-                                key={key}
-                                onClick={() => toggleSection(source, key)}
-                                disabled={isOnly}
-                                title={isOnly ? t("section_last") : undefined}
-                                className={`text-xs px-2 py-0.5 rounded border font-medium transition-all ${colorClass} ${
-                                  isOnly
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : "cursor-pointer hover:opacity-80"
-                                }`}
-                              >
-                                {active ? "✓ " : ""}
-                                {tSec(key as SectionKey)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                    {/* Section chips — only when subscribed */}
+                    {source.subscribed && source.available_sections.length > 0 && (
+                      <div
+                        className={`px-4 pb-3 flex flex-wrap gap-1.5 transition-opacity ${
+                          updatingSections[source.id] ? "opacity-50" : ""
+                        }`}
+                      >
+                        {source.available_sections.map((key) => {
+                          const active = isSectionActive(source, key);
+                          const isOnly = isOnlySection(source, key);
+                          const colorClass = active
+                            ? (SECTION_COLORS[key as SectionKey] ??
+                              "bg-gray-500/20 text-gray-500 border-gray-500/30")
+                            : INACTIVE_SECTION;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => toggleSection(source, key)}
+                              disabled={isOnly}
+                              title={isOnly ? t("section_last") : undefined}
+                              className={`text-xs px-2 py-0.5 rounded border font-medium transition-all ${colorClass} ${
+                                isOnly
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer hover:opacity-80"
+                              }`}
+                            >
+                              {active ? "✓ " : ""}
+                              {tSec(key as SectionKey)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
