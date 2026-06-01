@@ -5,41 +5,37 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import type { SectionKey } from "@/lib/db/schema";
 import { ALPHA2_TO_SLUG } from "@/lib/countries";
+import { FLAG_MAP } from "@/lib/utils/flags";
 
-/* ── Lazy-load the 3-D globe (Three.js — SSR incompatible) ─────────────────
-   The heavy WebGL bundle only loads when the user navigates to /map.        */
+/* ── Lazy-load the 3-D globe (Three.js — SSR incompatible) ─────────────── */
 const GlobeViewer = dynamic(
   () => import("./globe-viewer").then((m) => ({ default: m.GlobeViewer })),
   {
     ssr: false,
     loading: () => (
       <div className="w-full h-full flex items-center justify-center">
-        <span className="text-sm text-[var(--color-text-3)] animate-pulse">
-          Cargando globo…
-        </span>
+        <span className="text-sm text-blue-300/50 animate-pulse">Cargando globo…</span>
       </div>
     ),
   }
 );
 
-/* ── Section chip colours (mirrors SectionChip component) ───────────────── */
+/* ── Section chip colours ───────────────────────────────────────────────── */
 const SECTION_COLORS: Record<SectionKey, string> = {
-  sports:        "bg-blue-500/20 text-blue-500 border-blue-500/30",
-  politics:      "bg-red-500/20 text-red-500 border-red-500/30",
-  economy:       "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
-  tech:          "bg-purple-500/20 text-purple-500 border-purple-500/30",
-  world:         "bg-teal-500/20 text-teal-500 border-teal-500/30",
-  culture:       "bg-orange-500/20 text-orange-500 border-orange-500/30",
-  health:        "bg-green-500/20 text-green-600 border-green-500/30",
-  science:       "bg-cyan-500/20 text-cyan-500 border-cyan-500/30",
-  entertainment: "bg-pink-500/20 text-pink-500 border-pink-500/30",
+  sports:        "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  politics:      "bg-red-500/20 text-red-400 border-red-500/30",
+  economy:       "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  tech:          "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  world:         "bg-teal-500/20 text-teal-400 border-teal-500/30",
+  culture:       "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  health:        "bg-green-500/20 text-green-400 border-green-500/30",
+  science:       "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+  entertainment: "bg-pink-500/20 text-pink-400 border-pink-500/30",
 };
-
 const INACTIVE_SECTION =
-  "bg-[var(--color-bg-3)] text-[var(--color-text-3)] border-[var(--color-border)]";
+  "bg-white/5 text-white/30 border-white/10";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
-
 type Source = {
   id: string;
   name: string;
@@ -51,29 +47,27 @@ type Source = {
   subscription_sections: string[] | null;
 };
 
-type Props = {
-  locale: string;
-};
+type Props = { locale: string };
 
-/* ── Component ──────────────────────────────────────────────────────────── */
-
+/* ════════════════════════════════════════════════════════════════════════════
+   WorldMap
+   ══════════════════════════════════════════════════════════════════════════ */
 export function WorldMap({ locale }: Props) {
-  const t = useTranslations("Map");
+  const t    = useTranslations("Map");
   const tSec = useTranslations("Sections");
 
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loadingSources, setLoadingSources] = useState(false);
-  const [subscribing, setSubscribing] = useState<string | null>(null);
-  const [updatingSections, setUpdatingSections] = useState<Record<string, boolean>>({});
+  const [selectedCountry, setSelectedCountry]     = useState<string | null>(null);
+  const [sources, setSources]                     = useState<Source[]>([]);
+  const [loadingSources, setLoadingSources]       = useState(false);
+  const [subscribing, setSubscribing]             = useState<string | null>(null);
+  const [updatingSections, setUpdatingSections]   = useState<Record<string, boolean>>({});
 
-  /* ── Data loading ──────────────────────────────────────────────────────── */
-
-  async function loadSources(countryCode: string) {
+  /* ── Data ─────────────────────────────────────────────────────────────── */
+  async function loadSources(code: string) {
     setLoadingSources(true);
     setSources([]);
     try {
-      const res = await fetch(`/api/sources?country=${countryCode}`);
+      const res  = await fetch(`/api/sources?country=${code}`);
       const data = await res.json();
       setSources(data);
     } finally {
@@ -86,8 +80,12 @@ export function WorldMap({ locale }: Props) {
     loadSources(alpha2);
   }
 
-  /* ── Subscribe / unsubscribe ───────────────────────────────────────────── */
+  function handleClose() {
+    setSelectedCountry(null);
+    setSources([]);
+  }
 
+  /* ── Subscribe / unsubscribe ──────────────────────────────────────────── */
   async function toggleSubscription(source: Source) {
     setSubscribing(source.id);
     try {
@@ -97,12 +95,9 @@ export function WorldMap({ locale }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source_id: source.id }),
         });
-        setSources((prev) =>
-          prev.map((s) =>
-            s.id === source.id
-              ? { ...s, subscribed: false, subscription_sections: null }
-              : s
-          )
+        setSources((p) =>
+          p.map((s) => s.id === source.id
+            ? { ...s, subscribed: false, subscription_sections: null } : s)
         );
       } else {
         await fetch("/api/subscriptions", {
@@ -110,12 +105,9 @@ export function WorldMap({ locale }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source_id: source.id }),
         });
-        setSources((prev) =>
-          prev.map((s) =>
-            s.id === source.id
-              ? { ...s, subscribed: true, subscription_sections: null }
-              : s
-          )
+        setSources((p) =>
+          p.map((s) => s.id === source.id
+            ? { ...s, subscribed: true, subscription_sections: null } : s)
         );
       }
     } finally {
@@ -123,13 +115,11 @@ export function WorldMap({ locale }: Props) {
     }
   }
 
-  /* ── Section toggle ────────────────────────────────────────────────────── */
-
+  /* ── Section toggle ───────────────────────────────────────────────────── */
   async function toggleSection(source: Source, sectionKey: string) {
     if (updatingSections[source.id]) return;
-
     const current = source.subscription_sections;
-    const all = source.available_sections;
+    const all     = source.available_sections;
     let next: string[] | null;
 
     if (current === null) {
@@ -137,189 +127,200 @@ export function WorldMap({ locale }: Props) {
       if (rest.length === 0) return;
       next = rest;
     } else {
-      const alreadySelected = current.includes(sectionKey);
-      if (alreadySelected) {
-        const newSections = current.filter((s) => s !== sectionKey);
-        if (newSections.length === 0) return;
-        next = newSections;
+      const already = current.includes(sectionKey);
+      if (already) {
+        const ns = current.filter((s) => s !== sectionKey);
+        if (ns.length === 0) return;
+        next = ns;
       } else {
-        const newSections = [...current, sectionKey];
-        next = newSections.length >= all.length ? null : newSections;
+        const ns = [...current, sectionKey];
+        next = ns.length >= all.length ? null : ns;
       }
     }
 
-    setUpdatingSections((prev) => ({ ...prev, [source.id]: true }));
+    setUpdatingSections((p) => ({ ...p, [source.id]: true }));
     try {
       await fetch("/api/subscriptions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source_id: source.id, section_keys: next }),
       });
-      setSources((prev) =>
-        prev.map((s) =>
-          s.id === source.id ? { ...s, subscription_sections: next } : s
-        )
+      setSources((p) =>
+        p.map((s) => s.id === source.id ? { ...s, subscription_sections: next } : s)
       );
     } finally {
-      setUpdatingSections((prev) => ({ ...prev, [source.id]: false }));
+      setUpdatingSections((p) => ({ ...p, [source.id]: false }));
     }
   }
 
-  /* ── Helpers ───────────────────────────────────────────────────────────── */
+  /* ── Helpers ──────────────────────────────────────────────────────────── */
+  const isSectionActive = (source: Source, key: string) =>
+    source.subscription_sections === null || source.subscription_sections.includes(key);
 
-  function isSectionActive(source: Source, key: string): boolean {
-    return (
-      source.subscription_sections === null ||
-      source.subscription_sections.includes(key)
-    );
-  }
-
-  function isOnlySection(source: Source, key: string): boolean {
-    return (
-      source.subscription_sections !== null &&
-      source.subscription_sections.length === 1 &&
-      source.subscription_sections[0] === key
-    );
-  }
+  const isOnlySection = (source: Source, key: string) =>
+    source.subscription_sections !== null &&
+    source.subscription_sections.length === 1 &&
+    source.subscription_sections[0] === key;
 
   const selectedCountryName = selectedCountry
     ? new Intl.DisplayNames([locale], { type: "region" }).of(selectedCountry)
     : null;
 
-  /* ── Render ────────────────────────────────────────────────────────────── */
+  const selectedFlag = selectedCountry
+    ? (FLAG_MAP[selectedCountry] ?? "🌐")
+    : null;
 
+  const newsSlug = selectedCountry ? ALPHA2_TO_SLUG[selectedCountry] : null;
+
+  /* ── Render ───────────────────────────────────────────────────────────── */
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:h-full">
+    <div className="relative w-full h-full rounded-[var(--radius-card)] overflow-hidden bg-[#05081a]">
 
-      {/* ── Globe canvas ──────────────────────────────────────────────────── */}
-      <div className="relative aspect-square lg:aspect-auto lg:flex-1 rounded-[var(--radius-card)] overflow-hidden bg-[#05081a] border border-[var(--color-border)]">
-        <GlobeViewer
-          selectedCountry={selectedCountry}
-          onSelectCountry={handleSelectCountry}
-          locale={locale}
-        />
+      {/* Globe — fills the entire container */}
+      <GlobeViewer
+        selectedCountry={selectedCountry}
+        onSelectCountry={handleSelectCountry}
+        locale={locale}
+      />
 
-        {/* Hint — fades once a country is selected */}
-        {!selectedCountry && (
-          <p className="pointer-events-none absolute bottom-3 left-0 right-0 text-center text-[11px] text-blue-300/60 select-none">
-            {t("subtitle")}
-          </p>
-        )}
-      </div>
+      {/* Hint when nothing selected */}
+      {!selectedCountry && (
+        <p className="pointer-events-none absolute bottom-4 inset-x-0 text-center text-xs text-blue-300/40 select-none">
+          {t("subtitle")}
+        </p>
+      )}
 
-      {/* ── Source panel ──────────────────────────────────────────────────── */}
-      <div className="h-[380px] lg:h-full lg:w-72 rounded-[var(--radius-card)] bg-[var(--color-bg-2)] border border-[var(--color-border)] overflow-hidden">
-        {!selectedCountry ? (
-          <div className="h-full flex items-center justify-center p-6 text-center">
-            <p className="text-sm text-[var(--color-text-2)]">
-              {t("subtitle")}
-            </p>
-          </div>
-        ) : (
-          <div className="h-full flex flex-col">
-            {/* Panel header */}
-            <div className="px-4 py-3 border-b border-[var(--color-border)]">
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="font-semibold text-[var(--color-text)]">
-                  {t("panel_title", {
-                    country: selectedCountryName ?? selectedCountry,
-                  })}
-                </h2>
-                {selectedCountry && ALPHA2_TO_SLUG[selectedCountry] && (
-                  <a
-                    href={`/${locale}/news/${ALPHA2_TO_SLUG[selectedCountry]}`}
-                    className="shrink-0 text-xs text-[var(--color-blue)] hover:underline mt-0.5"
-                  >
-                    {t("view_news")} →
-                  </a>
-                )}
+      {/* ── Country modal ─────────────────────────────────────────────────
+          Appears as a centered card overlay (bottom-sheet on mobile).
+          Inspired by visitors.now: dark card, flag, stats, source list.  */}
+      {selectedCountry && (
+        <div className="absolute inset-0 z-20 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
+          {/* Backdrop — only behind modal, not blocking globe */}
+          <div
+            className="absolute inset-0 pointer-events-auto"
+            onClick={handleClose}
+            aria-hidden="true"
+          />
+
+          {/* Card */}
+          <div className="relative pointer-events-auto w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+               style={{ background: "linear-gradient(160deg, #0d1a2e 0%, #080f1c 100%)" }}>
+
+            {/* Close */}
+            <button
+              onClick={handleClose}
+              aria-label="Cerrar"
+              className="absolute top-3 right-3 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors text-sm"
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div className="pt-7 pb-5 px-6 text-center border-b border-white/8">
+              {/* Flag circle */}
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center text-4xl"
+                   style={{ background: "radial-gradient(circle, rgba(96,165,250,0.15) 0%, rgba(14,25,50,0.6) 100%)", border: "1px solid rgba(96,165,250,0.2)" }}>
+                {selectedFlag}
               </div>
+
+              <h2 className="text-lg font-bold text-white leading-tight">
+                {selectedCountryName ?? selectedCountry}
+              </h2>
+
               {!loadingSources && (
-                <p className="text-xs text-[var(--color-text-2)] mt-0.5">
+                <p className="mt-1 text-sm text-white/40">
                   {t("sources_available", { count: sources.length })}
                 </p>
+              )}
+
+              {/* "Ver noticias" link */}
+              {newsSlug && (
+                <a
+                  href={`/${locale}/news/${newsSlug}`}
+                  className="inline-flex items-center gap-1 mt-3 px-4 py-1.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-300 border border-blue-500/20 hover:bg-blue-500/25 transition-colors"
+                >
+                  {t("view_news")} →
+                </a>
               )}
             </div>
 
             {/* Source list */}
-            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-[var(--color-border)]">
+            <div className="overflow-y-auto overscroll-contain"
+                 style={{ maxHeight: "min(55vh, 380px)" }}>
               {loadingSources ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="px-4 py-3 flex items-center gap-3">
-                    <div className="skeleton h-4 w-4 rounded-full" />
-                    <div className="skeleton h-3 flex-1" />
-                    <div className="skeleton h-7 w-20 rounded" />
-                  </div>
-                ))
+                <div className="divide-y divide-white/5">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="px-5 py-3 flex items-center gap-3">
+                      <div className="skeleton h-3 flex-1 opacity-20" />
+                      <div className="skeleton h-7 w-20 rounded-full opacity-20" />
+                    </div>
+                  ))}
+                </div>
               ) : sources.length === 0 ? (
-                <p className="px-4 py-6 text-sm text-[var(--color-text-2)]">
+                <p className="px-5 py-6 text-sm text-white/30 text-center">
                   {t("no_sources")}
                 </p>
               ) : (
-                sources.map((source) => (
-                  <div key={source.id}>
-                    {/* Source row */}
-                    <div className="px-4 py-3 flex items-center gap-3">
-                      <span className="text-sm font-medium text-[var(--color-text)] flex-1 truncate">
-                        {source.name}
-                      </span>
-                      <button
-                        onClick={() => toggleSubscription(source)}
-                        disabled={subscribing === source.id}
-                        className={`shrink-0 px-3 py-1 rounded-[var(--radius-button)] text-xs font-medium transition-colors disabled:opacity-50 ${
-                          source.subscribed
-                            ? "bg-[var(--color-green)]/15 text-[var(--color-green)] hover:bg-[var(--color-red)]/15 hover:text-[var(--color-red)]"
-                            : "bg-[var(--color-blue)]/15 text-[var(--color-blue)] hover:bg-[var(--color-blue)]/25"
-                        }`}
-                      >
-                        {subscribing === source.id
-                          ? "…"
-                          : source.subscribed
-                          ? t("subscribed")
-                          : t("subscribe")}
-                      </button>
-                    </div>
-
-                    {/* Section chips — only when subscribed */}
-                    {source.subscribed && source.available_sections.length > 0 && (
-                      <div
-                        className={`px-4 pb-3 flex flex-wrap gap-1.5 transition-opacity ${
-                          updatingSections[source.id] ? "opacity-50" : ""
-                        }`}
-                      >
-                        {source.available_sections.map((key) => {
-                          const active = isSectionActive(source, key);
-                          const isOnly = isOnlySection(source, key);
-                          const colorClass = active
-                            ? (SECTION_COLORS[key as SectionKey] ??
-                              "bg-gray-500/20 text-gray-500 border-gray-500/30")
-                            : INACTIVE_SECTION;
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => toggleSection(source, key)}
-                              disabled={isOnly}
-                              title={isOnly ? t("section_last") : undefined}
-                              className={`text-xs px-2 py-0.5 rounded border font-medium transition-all ${colorClass} ${
-                                isOnly
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "cursor-pointer hover:opacity-80"
-                              }`}
-                            >
-                              {active ? "✓ " : ""}
-                              {tSec(key as SectionKey)}
-                            </button>
-                          );
-                        })}
+                <div className="divide-y divide-white/5">
+                  {sources.map((source) => (
+                    <div key={source.id} className="px-5 py-3">
+                      {/* Source row */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-white/80 flex-1 truncate">
+                          {source.name}
+                        </span>
+                        <button
+                          onClick={() => toggleSubscription(source)}
+                          disabled={subscribing === source.id}
+                          className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+                            source.subscribed
+                              ? "bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/20"
+                              : "bg-blue-500/15 text-blue-400 border border-blue-500/20 hover:bg-blue-500/25"
+                          }`}
+                        >
+                          {subscribing === source.id
+                            ? "…"
+                            : source.subscribed
+                            ? t("subscribed")
+                            : t("subscribe")}
+                        </button>
                       </div>
-                    )}
-                  </div>
-                ))
+
+                      {/* Section chips */}
+                      {source.subscribed && source.available_sections.length > 0 && (
+                        <div className={`mt-2 flex flex-wrap gap-1 transition-opacity ${updatingSections[source.id] ? "opacity-40" : ""}`}>
+                          {source.available_sections.map((key) => {
+                            const active = isSectionActive(source, key);
+                            const isOnly = isOnlySection(source, key);
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => toggleSection(source, key)}
+                                disabled={isOnly}
+                                title={isOnly ? t("section_last") : undefined}
+                                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition-all ${
+                                  active
+                                    ? (SECTION_COLORS[key as SectionKey] ?? "bg-gray-500/20 text-gray-400 border-gray-500/30")
+                                    : INACTIVE_SECTION
+                                } ${isOnly ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-80"}`}
+                              >
+                                {active ? "✓ " : ""}{tSec(key as SectionKey)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
+
+              {/* Safe area for mobile */}
+              <div className="h-safe-bottom pb-3" />
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
