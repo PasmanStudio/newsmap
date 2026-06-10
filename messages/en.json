@@ -39,9 +39,21 @@
     "profile_custom_desc": "Pick the countries and sources you want to follow yourself.",
     "step2_title": "Fine-tune your selection",
     "step2_subtitle": "Add or remove sources to match your preferences.",
+    "step1_eyebrow": "Step 1 of 2",
+    "step2_eyebrow": "Step 2 of 2 · {profile}",
+    "step2_count": "{count, plural, one {# source selected} other {# sources selected}}",
     "btn_continue": "Continue",
     "btn_back": "Back",
-    "btn_finish": "Go to my feed"
+    "btn_finish": "Go to my feed",
+    "btn_remove": "Remove",
+    "btn_add": "Add",
+    "add_more_from_map": "Add more sources from the map",
+    "btn_go_diary": "Go to my diary ({count})",
+    "skip": "Skip for now",
+    "done_title": "Your diary is ready",
+    "done_desc": "{count, plural, one {# source} other {# sources}} · Morning edition in preparation.",
+    "done_cta": "Go to my front page",
+    "error_generic": "Something went wrong. Please try again."
   },
   "Feed": {
     "title": "My feed",
@@ -52,10 +64,17 @@
     "load_more": "Load more",
     "filter_all": "All",
     "filter_by_section": "No articles in this section yet.",
-    "search_placeholder": "Search articles…",
+    "search_placeholder": "Search your diary…",
+    "search_aria": "Search articles",
+    "search_clear": "Clear search",
     "search_no_results": "No articles found for \"{query}\".",
     "reading_time": "{minutes} min read",
-    "published_ago": "{time} ago"
+    "published_ago": "{time} ago",
+    "lead_eyebrow": "Front page",
+    "lead_footnote": "Front page: the story most covered by your sources in the last few hours.",
+    "band_count": "{count, plural, one {# new story} other {# new stories}}",
+    "band_view_section": "View section",
+    "ad_label": "Advertisement"
   },
   "Map": {
     "title": "Source map",
@@ -67,7 +86,28 @@
     "no_sources": "No sources available for this country yet.",
     "panel_title": "Sources in {country}",
     "section_last": "Can't deselect the only active section",
-    "view_news": "View news"
+    "view_news": "View news",
+    "explore_eyebrow": "Explore sources",
+    "atlas_title": "Your diary's atlas",
+    "atlas_subtitle": "Search for a country or a publication, or browse the list by region. Your current coverage: {count, plural, one {# source} other {# sources}}.",
+    "atlas_search_placeholder": "Search country or source — e.g. \"Brazil\" or \"BBC\"",
+    "atlas_search_aria": "Search country or source",
+    "atlas_no_results": "No countries or sources found for \"{query}\".",
+    "atlas_globe_note": "The interactive globe lives below as an atlas plate — the list is the fast (and accessible) path.",
+    "globe_plate_title": "Atlas plate · the globe",
+    "sources_count": "{count, plural, one {# source} other {# sources}}",
+    "subscribed_dot": "{count, plural, one {# subscribed} other {# subscribed}}",
+    "follow": "Follow",
+    "following": "Following",
+    "view_front_page": "View {country}'s front page",
+    "toast_added": "{name} added to your diary · {count, plural, one {# source} other {# sources}}",
+    "toast_removed": "{name} removed · {count, plural, one {# source} other {# sources}}",
+    "toast_view_diary": "View my diary",
+    "region_latam": "Latin America",
+    "region_north_america": "North America",
+    "region_europe": "Europe",
+    "region_asia": "Asia",
+    "region_africa": "Africa"
   },
   "Auth": {
     "signin_title": "Sign in to NewsMap",
@@ -120,7 +160,12 @@
     "read_full": "Read full article",
     "source_label": "Source",
     "paywall_notice": "This article may be behind a paywall.",
-    "share": "Share"
+    "share": "Share",
+    "full_read": "Full read · {minutes} min",
+    "read_badge": "Read",
+    "next_in_diary": "Next in your diary",
+    "view_on": "Read on {source}",
+    "close": "Close"
   },
   "News": {
     "meta_title": "{country} News Today | NewsMap",
@@ -142,6 +187,10 @@
   },
   "Masthead": {
     "tagline": "World news, one front page",
+    "presents": "NewsMap presents",
+    "owner_title": "{name}'s Diary",
+    "stats": "{sources, plural, one {# source} other {# sources}} · {countries, plural, one {# country} other {# countries}} · No algorithm",
+    "edit_aria": "Edit my diary",
     "edition_morning": "Morning Edition",
     "edition_afternoon": "Afternoon Edition",
     "edition_evening": "Evening Edition"
@@ -154,11 +203,14 @@
     "streak_title": "Consecutive days on NewsMap",
     "read_this_week_short": "{count, plural, one {# read} other {# read}}",
     "read_this_week_title": "Articles read this week",
-    "end_of_feed_title": "You are all caught up",
-    "end_of_feed_desc": "You have seen every story in the feed. The page refreshes every 15 minutes — check back soon for new headlines.",
+    "end_of_feed_title": "You reached the end",
+    "end_of_feed_desc": "You are all caught up with your diary.",
+    "end_of_feed_stats": "Day {streak} in a row · {count, plural, one {# story read} other {# stories read}} this week.",
     "end_of_feed_cta_map": "Explore the map",
     "end_of_feed_cta_saved": "View saved ({count})",
-    "end_of_feed_cta_top": "Back to top"
+    "end_of_feed_cta_top": "Back to top",
+    "footer_privacy": "Privacy",
+    "footer_sources": "Our sources"
   },
   "Saved": {
     "eyebrow": "Your collection",
@@ -199,7 +251,8 @@
     "description": "Compare how different publishers covered this story. Each link opens that source's version of the article.",
     "close": "Close",
     "badge_intl": "{sources} sources · {countries} countries",
-    "intl_title": "International story · covered in {countries} countries"
+    "intl_title": "International story · covered in {countries} countries",
+    "pill_label": "{count, plural, one {# source covers this} other {# sources cover this}}"
   },
   "Activity": {
     "pulse": "World pulse",

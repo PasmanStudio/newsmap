@@ -2,9 +2,9 @@
 
 import { useState, useCallback } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { SectionChip } from "@/components/ui/section-chip";
 import { timeAgo, truncate } from "@/lib/utils/time";
-import { FLAG_MAP } from "@/lib/utils/flags";
 import { useHistory } from "@/lib/storage/use-history";
 import { useWeeklyCount } from "@/lib/storage/use-weekly-count";
 import { BookmarkButton } from "./bookmark-button";
@@ -12,13 +12,15 @@ import { ClusterPill } from "./cluster-pill";
 import type { SectionKey } from "@/lib/db/schema";
 
 /**
- * Returns true only when content:encoded has substantial text (not just a paywall teaser).
- * El País, AS and similar sources send short teasers ending in "Seguir leyendo" — we don't
- * want to show the "✦ full" badge for those.
+ * Estimated reading minutes (~200 wpm) for the full-read badge.
+ * Returns null for thin bodies (paywall teasers from El País, AS, etc.) so
+ * the "Lectura completa" badge only shows when there is a real article.
  */
-function hasRichContent(html: string | null): boolean {
-  if (!html) return false;
-  return html.replace(/<[^>]+>/g, "").trim().length > 350;
+function readingMinutes(html: string | null): number | null {
+  if (!html) return null;
+  const text = html.replace(/<[^>]+>/g, " ").trim();
+  if (text.length <= 350) return null;
+  return Math.max(1, Math.round(text.split(/\s+/).length / 200));
 }
 
 /** One member of a multi-source story cluster (siblings of the primary article) */
@@ -59,7 +61,7 @@ export type ArticleCardData = {
 
 /**
  * Visual variant for the card:
- *  - "lead":     hero treatment for the top story (large image, big serif headline, dek)
+ *  - "lead":     "Portada" hero treatment for the most-covered story
  *  - "standard": normal feed card (hairline rule, compact serif headline)
  */
 export type ArticleCardVariant = "lead" | "standard";
@@ -79,6 +81,51 @@ type Props = {
   priority?: boolean;
 };
 
+/** "Lectura completa · N min" / "Leída" stamp-style badges */
+function MetaBadge({
+  children,
+  tone = "ink",
+  icon,
+}: {
+  children: React.ReactNode;
+  tone?: "ink" | "read";
+  icon?: "check";
+}) {
+  const isRead = tone === "read";
+  return (
+    <span
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-[3px] text-[9px] font-semibold uppercase leading-none tracking-[0.1em]"
+      style={
+        isRead
+          ? { color: "var(--color-ink-3)", padding: "2px 0" }
+          : {
+              color: "var(--color-ink-blue)",
+              background:
+                "color-mix(in srgb, var(--color-ink-blue) 10%, transparent)",
+              padding: "3px 6px",
+            }
+      }
+    >
+      {icon === "check" && (
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      )}
+      {children}
+    </span>
+  );
+}
+
 export function ArticleCard({
   article,
   sectionLabel,
@@ -89,7 +136,8 @@ export function ArticleCard({
   variant = "standard",
   priority = false,
 }: Props) {
-  const flag = FLAG_MAP[article.country_code] ?? "🗞";
+  const tArt = useTranslations("Article");
+  const tFeed = useTranslations("Feed");
   const ago = timeAgo(article.published_at, locale);
   const isLead = variant === "lead";
 
@@ -97,11 +145,13 @@ export function ArticleCard({
   const description = article.description
     ? truncate(article.description, isLead ? 280 : 180)
     : null;
-  const hasFullContent = hasRichContent(article.content_html);
+  const fullReadMin = readingMinutes(article.content_html);
 
-  // Mark-read + bump weekly counter on any "read this article" interaction.
-  // De-dup is handled inside the hooks; calling multiple times is safe.
-  const { markRead } = useHistory();
+  // Read state (F-10): attenuate read articles, never hide them.
+  // useHistory is localStorage-backed, so this works for anonymous users too.
+  const { items: history, markRead } = useHistory();
+  const isRead = history.some((e) => e.id === article.id);
+
   const { bump } = useWeeklyCount();
   const trackRead = useCallback(() => {
     markRead(article);
@@ -116,26 +166,29 @@ export function ArticleCard({
       }
     : undefined;
 
-  // ── Lead variant — hero treatment ─────────────────────────────────────────
+  // ── Lead variant — "Portada" hero treatment ───────────────────────────────
   if (isLead) {
     return (
-      <article className="fade-in-up border-b border-[var(--color-border)] pb-6 sm:pb-8 mb-2 group">
-        {/* Eyebrow row: section · source · cluster pill (if part of multi-source story) */}
+      <article
+        className={`fade-in-up border-b border-[var(--color-hairline)] pb-6 sm:pb-7 mb-2 group ${
+          isRead ? "is-read" : ""
+        }`}
+      >
+        {/* Eyebrow row: Portada · cluster pill */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="eyebrow text-[var(--color-accent)]">
-            {sectionLabel}
-          </span>
-          <span className="opacity-30 text-xs">·</span>
-          <span className="text-[11px] text-[var(--color-text-3)] uppercase tracking-wider font-semibold">
-            {article.source_name}
+          <span className="eyebrow text-[var(--color-oxblood)]">
+            {tFeed("lead_eyebrow")}
           </span>
           {article.cluster && (
-            <ClusterPill
-              article={article}
-              cluster={article.cluster}
-              locale={locale}
-              size="md"
-            />
+            <>
+              <span className="opacity-30 text-xs">·</span>
+              <ClusterPill
+                article={article}
+                cluster={article.cluster}
+                locale={locale}
+                size="md"
+              />
+            </>
           )}
         </div>
 
@@ -166,8 +219,8 @@ export function ArticleCard({
         {handlePreview ? (
           <button
             onClick={handlePreview}
-            className="block w-full text-left headline-serif text-[var(--color-text)] group-hover:text-[var(--color-accent)] transition-colors"
-            style={{ fontSize: "clamp(1.35rem, 2.8vw, 2.2rem)" }}
+            className="block w-full text-left headline-serif text-[var(--color-ink-1)] group-hover:text-[var(--color-oxblood)] transition-colors"
+            style={{ fontSize: "clamp(1.35rem, 2.8vw, 2rem)" }}
           >
             {article.title}
           </button>
@@ -177,8 +230,8 @@ export function ArticleCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={trackRead}
-            className="block headline-serif text-[var(--color-text)] group-hover:text-[var(--color-accent)] transition-colors"
-            style={{ fontSize: "clamp(1.35rem, 2.8vw, 2.2rem)" }}
+            className="block headline-serif text-[var(--color-ink-1)] group-hover:text-[var(--color-oxblood)] transition-colors"
+            style={{ fontSize: "clamp(1.35rem, 2.8vw, 2rem)" }}
           >
             {article.title}
           </a>
@@ -186,15 +239,25 @@ export function ArticleCard({
 
         {/* Dek (subtitle paragraph) */}
         {description && (
-          <p className="mt-2.5 sm:mt-3 text-[13.5px] sm:text-[15px] text-[var(--color-text-2)] leading-relaxed">
+          <p className="mt-2.5 text-[15px] text-[var(--color-ink-2)] leading-[1.55]">
             {description}
           </p>
         )}
 
-        {/* Footer row: country flag · time · bookmark · CTA */}
-        <div className="mt-3 flex items-center gap-3 text-[11px] text-[var(--color-text-3)]">
-          <span className="text-base leading-none">{flag}</span>
+        {/* Footer row: source · time · badges · bookmark */}
+        <div className="mt-3 flex items-center gap-2.5 flex-wrap text-[11px] text-[var(--color-ink-3)]">
+          <span className="eyebrow text-[var(--color-ink-2)]">
+            {article.source_name}
+          </span>
           <span>{ago}</span>
+          {fullReadMin && (
+            <MetaBadge>{tArt("full_read", { minutes: fullReadMin })}</MetaBadge>
+          )}
+          {isRead && (
+            <MetaBadge tone="read" icon="check">
+              {tArt("read_badge")}
+            </MetaBadge>
+          )}
           {paywallNotice && (
             <span className="text-[var(--color-yellow)] opacity-80">
               · {paywallNotice}
@@ -207,56 +270,50 @@ export function ArticleCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={trackRead}
-              className="text-[var(--color-ink)] font-semibold hover:underline uppercase tracking-wider"
+              className="text-[var(--color-ink-blue)] font-semibold hover:underline uppercase tracking-wider"
             >
               {readLabel} →
             </a>
           </div>
         </div>
+
+        {/* What "Portada" means — transparency over the (non-)algorithm */}
+        <p className="mt-2.5 text-[10px] text-[var(--color-ink-3)]">
+          {tFeed("lead_footnote")}
+        </p>
       </article>
     );
   }
 
   // ── Standard variant — newspaper-row treatment ────────────────────────────
   return (
-    <article className="fade-in-up border-b border-[var(--color-border)] pb-4 sm:pb-5 group">
+    <article
+      className={`fade-in-up border-b border-[var(--color-hairline)] pb-4 sm:pb-5 group ${
+        isRead ? "is-read" : ""
+      }`}
+    >
       <div className="flex gap-3 sm:gap-4">
-        {/* Thumbnail on the right (newspaper convention: photo right of headline) */}
         <div className="flex-1 min-w-0">
-          {/* Meta row — small caps eyebrow + optional cluster pill */}
-          <div className="mb-1.5">
-            <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-3)] min-w-0">
-              <span className="eyebrow text-[var(--color-text-2)] truncate min-w-0">
+          {/* Meta row — source eyebrow · section chip · read badge · time */}
+          <div className="flex items-center gap-2 mb-1.5 text-[11px] text-[var(--color-ink-3)] min-w-0">
+            <span className="eyebrow text-[var(--color-ink-2)] truncate min-w-0">
               {article.source_name}
-              </span>
-              <span className="opacity-30 shrink-0">·</span>
-              <SectionChip section={article.section_key} label={sectionLabel} />
-              <span className="ml-auto shrink-0">{ago}</span>
-            </div>
-            {(article.cluster || hasFullContent) && (
-              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                {article.cluster && (
-                  <ClusterPill
-                    article={article}
-                    cluster={article.cluster}
-                    locale={locale}
-                    size="sm"
-                  />
-                )}
-                {hasFullContent && (
-                  <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-sm bg-[var(--color-accent)]/10 text-[var(--color-accent)] font-medium leading-none uppercase tracking-wider">
-                    ✦ full
-                  </span>
-                )}
-              </div>
+            </span>
+            <span className="opacity-30 shrink-0">·</span>
+            <SectionChip section={article.section_key} label={sectionLabel} />
+            {isRead && (
+              <MetaBadge tone="read" icon="check">
+                {tArt("read_badge")}
+              </MetaBadge>
             )}
+            <span className="ml-auto shrink-0">{ago}</span>
           </div>
 
           {/* Title — serif */}
           {handlePreview ? (
             <button
               onClick={handlePreview}
-              className="block w-full text-left headline-serif text-[var(--color-text)] group-hover:text-[var(--color-accent)] transition-colors"
+              className="block w-full text-left headline-serif text-[var(--color-ink-1)] group-hover:text-[var(--color-oxblood)] transition-colors"
               style={{ fontSize: "clamp(1.05rem, 2vw, 1.25rem)" }}
             >
               {article.title}
@@ -267,7 +324,7 @@ export function ArticleCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={trackRead}
-              className="block headline-serif text-[var(--color-text)] group-hover:text-[var(--color-accent)] transition-colors"
+              className="block headline-serif text-[var(--color-ink-1)] group-hover:text-[var(--color-oxblood)] transition-colors"
               style={{ fontSize: "clamp(1.05rem, 2vw, 1.25rem)" }}
             >
               {article.title}
@@ -276,7 +333,7 @@ export function ArticleCard({
 
           {/* Description */}
           {description && (
-            <p className="mt-1.5 text-[13.5px] text-[var(--color-text-2)] leading-snug line-clamp-2">
+            <p className="mt-1.5 text-[13px] text-[var(--color-ink-2)] leading-[1.45] line-clamp-2">
               {description}
             </p>
           )}
@@ -288,9 +345,21 @@ export function ArticleCard({
             </p>
           )}
 
-          {/* CTA row */}
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--color-text-3)]">
-            <span className="text-sm leading-none">{flag}</span>
+          {/* Bottom row: cluster pill · full-read badge · bookmark · CTA */}
+          <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-[var(--color-ink-3)]">
+            {article.cluster && (
+              <ClusterPill
+                article={article}
+                cluster={article.cluster}
+                locale={locale}
+                size="sm"
+              />
+            )}
+            {fullReadMin && (
+              <MetaBadge>
+                {tArt("full_read", { minutes: fullReadMin })}
+              </MetaBadge>
+            )}
             <div className="ml-auto flex items-center gap-1.5">
               <BookmarkButton article={article} size="sm" />
               <a
@@ -298,7 +367,7 @@ export function ArticleCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={trackRead}
-                className="text-[var(--color-ink)] hover:underline"
+                className="text-[var(--color-ink-blue)] hover:underline"
               >
                 {readLabel} →
               </a>
@@ -306,8 +375,8 @@ export function ArticleCard({
           </div>
         </div>
 
-        {/* Thumbnail — narrow on phones so the headline gets real estate, wider on ≥sm */}
-        <div className="shrink-0 w-[88px] sm:w-[140px]">
+        {/* Thumbnail — narrow on phones so the headline gets real estate */}
+        <div className="shrink-0 w-[88px] sm:w-[100px]">
           {handlePreview ? (
             <button
               onClick={handlePreview}
@@ -351,14 +420,14 @@ function ThumbnailContent({
     <div
       className={`relative ${
         large ? "aspect-[16/9]" : "aspect-[4/3]"
-      } bg-[var(--color-bg-3)] overflow-hidden`}
+      } bg-[var(--color-paper-3)] rounded-[2px] overflow-hidden`}
     >
       {article.thumbnail_url ? (
         <Image
           src={article.thumbnail_url}
           alt=""
           fill
-          sizes={large ? "(max-width: 768px) 100vw, 720px" : "140px"}
+          sizes={large ? "(max-width: 768px) 100vw, 720px" : "100px"}
           className="object-cover"
           unoptimized
           priority={priority}
@@ -378,7 +447,7 @@ function ThumbnailContent({
           ) : (
             // Flag emojis render as letter pairs on Windows — use source initials instead
             <span
-              className={`font-bold opacity-20 tracking-widest select-none uppercase ${
+              className={`font-bold opacity-20 tracking-widest select-none uppercase text-[var(--color-ink-1)] ${
                 large ? "text-2xl" : "text-[10px]"
               }`}
             >
@@ -389,13 +458,6 @@ function ThumbnailContent({
                 .slice(0, 3)}
             </span>
           )}
-        </div>
-      )}
-      {/* Preview badge — only when content:encoded has substantial text */}
-      {hasRichContent(article.content_html) && large && (
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/65 backdrop-blur-sm text-white text-[10px] font-medium leading-none pointer-events-none uppercase tracking-wider">
-          <span>📖</span>
-          <span>preview</span>
         </div>
       )}
     </div>

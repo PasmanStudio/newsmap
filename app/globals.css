@@ -1,32 +1,62 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Newspaper palette ─────────────────────────────────────────────────
-     Warm off-white background like newsprint, near-black ink for text,
-     oxblood accent borrowed from classic mastheads. Section accents are
-     slightly desaturated to harmonize with the paper-tone background.
+  /* ── Newspaper palette — canonical tokens from the NewsMap design system ──
+     Warm off-white "paper", near-black ink, oxblood masthead accent.
+     Audit fixes baked in:
+     · F-41: --ink-3 darkened to #767676 (≥4.5:1 on paper → AA at 10–11px)
+     · F-02: section colors are the ONLY source of truth for feed, map,
+       chips and section pages. Never redefine them in components.
   ──────────────────────────────────────────────────────────────────────── */
+
+  /* Paper (surfaces) */
+  --color-paper:     #fbfaf7;  /* base background, warm off-white */
+  --color-paper-2:   #f3f1ec;  /* cards / subtle elevation */
+  --color-paper-3:   #e8e4dc;  /* deep elevation, image placeholders */
+  --color-hairline:  #d9d3c4;  /* warm 1px rules and borders */
+
+  /* Ink (text) */
+  --color-ink-1:     #1a1a1a;  /* headlines and primary text */
+  --color-ink-2:     #4a4a4a;  /* secondary body, deks */
+  --color-ink-3:     #767676;  /* meta / muted — AA 4.5:1 on paper (F-41) */
+  --color-ink-faint: #9a958a;  /* decorative ONLY (ornaments) — never copy */
+
+  /* Brand accents */
+  --color-ink-blue:  #1c2b4a;  /* deep ink blue — links, CTAs, primary */
+  --color-oxblood:   #7a1f1f;  /* masthead, lead story, breaking news */
+
+  /* Sections (canonical, F-02) — desaturated to sit on paper.
+     Color is never the only signal: always paired with the label. */
+  --color-section-politics:      #1c2b4a;
+  --color-section-economy:       #2d5a3d;
+  --color-section-world:         #1f5a5a;
+  --color-section-sports:        #2c5d80;
+  --color-section-tech:          #5a3d6e;
+  --color-section-culture:       #c2502a;
+  --color-section-health:        #5a7a3d;
+  --color-section-science:       #4a4a7a;
+  --color-section-entertainment: #8a3d5a;
+  --color-section-breaking:      #7a1f1f;
+
+  /* Legacy aliases — older components reference these names */
   --color-background: #fbfaf7;
   --color-foreground: #1a1a1a;
-
-  --color-bg:        #fbfaf7;  /* warm off-white (newsprint) */
-  --color-bg-2:      #f3f1ec;  /* card / subtle elevation */
-  --color-bg-3:      #e8e4dc;  /* deeper elevation, image placeholders */
-  --color-border:    #d9d3c4;  /* warm hairline rule */
-  --color-text:      #1a1a1a;  /* near-black ink */
-  --color-text-2:    #4a4a4a;  /* secondary text / body */
-  --color-text-3:    #8a8a8a;  /* meta / muted */
-  --color-ink:       #1c2b4a;  /* deep ink-blue — links, CTAs */
-  --color-accent:    #7a1f1f;  /* oxblood — masthead / lead story / breaking */
-
-  /* Section accents — kept distinct, slightly muted vs. before */
-  --color-blue:      #1c2b4a;  /* política → deep ink blue */
-  --color-green:     #2d5a3d;  /* economía → forest green */
-  --color-yellow:    #a86f1f;  /* burnt orange-yellow */
-  --color-red:       #7a1f1f;  /* última hora → oxblood */
-  --color-purple:    #5a3d6e;
-  --color-orange:    #c2502a;
-  --color-teal:      #1f5a5a;
+  --color-bg:        var(--color-paper);
+  --color-bg-2:      var(--color-paper-2);
+  --color-bg-3:      var(--color-paper-3);
+  --color-border:    var(--color-hairline);
+  --color-text:      var(--color-ink-1);
+  --color-text-2:    var(--color-ink-2);
+  --color-text-3:    var(--color-ink-3);
+  --color-ink:       var(--color-ink-blue);
+  --color-accent:    var(--color-oxblood);
+  --color-blue:      var(--color-section-politics);
+  --color-green:     var(--color-section-economy);
+  --color-yellow:    #a86f1f;
+  --color-red:       var(--color-oxblood);
+  --color-purple:    var(--color-section-tech);
+  --color-orange:    var(--color-section-culture);
+  --color-teal:      var(--color-section-world);
 
   --radius-card:     4px;       /* much tighter — newspaper, not social */
   --radius-button:   4px;
@@ -35,6 +65,25 @@
   --font-mono:    var(--font-geist-mono), "Courier New", monospace;
   --font-serif:   var(--font-fraunces), "Times New Roman", Georgia, serif;
   --font-display: var(--font-fraunces), "Times New Roman", Georgia, serif;
+}
+
+:root {
+  /* ── Layout measures, rules, shadows (design-system spacing tokens) ── */
+  --measure-feed:    720px;  /* feed column */
+  --measure-page:    920px;  /* masthead / public pages */
+  --measure-reading: 640px;  /* reading-modal column */
+  --tap-target:      44px;   /* WCAG minimum on every interactive element */
+
+  --rule-hairline: 1px solid var(--color-hairline);  /* card separator */
+  --rule-section:  2px solid var(--color-ink-1);     /* section band (black) */
+  --rule-masthead: 2px solid var(--color-oxblood);   /* under the masthead */
+
+  /* Paper doesn't float — only modals/sheets cast shadows */
+  --shadow-overlay: 0 8px 32px rgba(26, 26, 26, 0.18);
+  --shadow-sheet:   0 -4px 24px rgba(26, 26, 26, 0.12);
+
+  /* Read state (F-10): attenuate, never hide */
+  --read-opacity: 0.55;
 }
 
 body {
@@ -71,8 +120,11 @@ body {
     #ece8df 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 4px;
+}
+/* Animations always sit behind reduced-motion (F-44) */
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: shimmer 1.4s ease-in-out infinite; }
 }
 
 /* ─── newspaper utilities ─────────────────────────────────────────────────
@@ -119,13 +171,28 @@ body {
   color: var(--color-text);
 }
 
-/* Subtle fade-in for newly rendered cards */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Subtle fade-in for newly rendered cards — gated on reduced-motion (F-44) */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in-up {
+    animation: fadeInUp 0.35s ease-out both;
+  }
 }
-.fade-in-up {
-  animation: fadeInUp 0.35s ease-out both;
+
+/* Read state (F-10) — attenuate, never hide */
+.is-read {
+  opacity: var(--read-opacity);
+}
+
+/* Closing ornament — end of feed, end of document */
+.ornament {
+  text-align: center;
+  color: var(--color-ink-faint);
+  letter-spacing: 0.8em;
+  user-select: none;
 }
 
 /* Hide the scrollbar but keep scrolling (used in horizontal rails) */

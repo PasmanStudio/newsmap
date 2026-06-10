@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { WorldMap } from "@/components/map/world-map";
+import { AtlasExplorer } from "@/components/map/atlas-explorer";
 import type { Metadata } from "next";
 import { requirePageUser } from "@/lib/supabase/auth-guards";
 
@@ -13,6 +14,11 @@ export async function generateMetadata({
   return { title: t("title") };
 }
 
+/**
+ * Explore page — list-first atlas (search + regions + country panel) with
+ * the interactive globe demoted to an "atlas plate" further down (F-19/F-42:
+ * the list is the accessible fast path; the globe is the lámina).
+ */
 export default async function MapPage({
   params,
 }: Readonly<{
@@ -23,18 +29,18 @@ export default async function MapPage({
   const t = await getTranslations({ locale, namespace: "Map" });
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-xl font-bold text-[var(--color-text)] mb-1">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-[var(--color-text-2)] mb-6">
-          {t("subtitle")}
+    <div className="min-h-screen px-4 pt-5 pb-12">
+      <AtlasExplorer locale={locale} />
+
+      {/* Atlas plate — the interactive globe, secondary to the list */}
+      <section className="max-w-[920px] mx-auto mt-10">
+        <p className="eyebrow border-b-2 border-[var(--color-ink-1)] pb-1 mb-3">
+          {t("globe_plate_title")}
         </p>
-        <div className="lg:h-[calc(100vh-200px)]">
+        <div className="h-[420px] lg:h-[520px]">
           <WorldMap locale={locale} />
         </div>
-      </div>
+      </section>
     </div>
   );
 }

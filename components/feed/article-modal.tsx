@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { SectionChip } from "@/components/ui/section-chip";
 import { timeAgo } from "@/lib/utils/time";
-import { FLAG_MAP } from "@/lib/utils/flags";
 import { normalizeSourceLogoUrl } from "@/lib/utils/source-logos";
 import {
   sanitizeArticleHtml,
@@ -18,6 +17,8 @@ import type { SectionKey } from "@/lib/db/schema";
 type Props = {
   article: ArticleCardData | null;
   onClose: () => void;
+  /** Advance to the next previewable article in the feed (F-16). Omit to hide the button. */
+  onNext?: () => void;
   locale: string;
 };
 
@@ -57,7 +58,13 @@ function SourceLogo({
   );
 }
 
-export function ArticleModal({ article, onClose, locale }: Props) {
+/**
+ * Reading modal — the "Lectura completa" differentiator. The article body is
+ * read here, without leaving the diary: paper surface, serif display
+ * headline, drop cap on the body, and a "next in your diary" step (F-16)
+ * so finishing one story flows into the next.
+ */
+export function ArticleModal({ article, onClose, onNext, locale }: Props) {
   const tSec = useTranslations("Sections");
   const tArt = useTranslations("Article");
 
@@ -136,7 +143,6 @@ export function ArticleModal({ article, onClose, locale }: Props) {
 
   if (!article) return null;
 
-  const flag = FLAG_MAP[article.country_code] ?? "🗞";
   const ago = timeAgo(article.published_at, locale);
   const sectionLabel = tSec(article.section_key as SectionKey);
   const sourceInitials = article.source_name
@@ -163,103 +169,137 @@ export function ArticleModal({ article, onClose, locale }: Props) {
       aria-modal="true"
       aria-label={article.title}
     >
-      {/* Backdrop */}
+      {/* Scrim — ink over paper, not pitch black */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(26,26,26,0.55)]"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel — bottom sheet on mobile, centered card on desktop */}
-      <div className="relative w-full sm:max-w-lg mx-4 sm:mx-0 bg-[var(--color-bg-2)] rounded-t-2xl sm:rounded-2xl overflow-hidden max-h-[92dvh] flex flex-col shadow-2xl">
-
-        {/* Close button — ≥40 px tap target so it's hittable while skimming on mobile */}
-        <button
-          onClick={onClose}
-          aria-label="Close preview"
-          className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/55 text-white text-base hover:bg-black/75 active:bg-black/85 transition-colors"
-        >
-          ✕
-        </button>
-
-        {/* Thumbnail */}
-        {article.thumbnail_url ? (
-          <div className="relative w-full aspect-video bg-[var(--color-bg-3)] shrink-0">
-            <Image
-              src={article.thumbnail_url}
-              alt=""
-              fill
-              sizes="(max-width: 640px) 100vw, 512px"
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <div className="relative w-full aspect-video bg-[var(--color-bg-3)] flex items-center justify-center shrink-0">
-            <SourceLogo
-              src={sourceLogo}
-              alt={article.source_name}
-              width={56}
-              height={56}
-              className="opacity-30 object-contain"
-              fallback={(
-                <span className="text-3xl font-bold opacity-20 tracking-widest select-none uppercase">
-                  {sourceInitials}
-                </span>
-              )}
-            />
-          </div>
-        )}
-
+      {/* Panel — bottom sheet on mobile, centered reading column on desktop */}
+      <div className="relative w-full sm:max-w-[640px] sm:mx-4 bg-[var(--color-paper)] rounded-t-lg sm:rounded-md overflow-hidden max-h-[86dvh] flex flex-col"
+        style={{ boxShadow: "var(--shadow-overlay)" }}
+      >
         {/* Scrollable body */}
-        <div className="p-4 sm:p-5 space-y-3 overflow-y-auto overscroll-contain">
+        <div className="px-5 sm:px-6 pt-5 pb-6 overflow-y-auto overscroll-contain">
 
-          {/* Source meta row — wraps gracefully on narrow widths */}
-          <div className="flex items-center gap-2 text-xs text-[var(--color-text-2)] flex-wrap">
-            <span>{flag}</span>
-            <SourceLogo
-              src={sourceLogo}
-              alt={article.source_name}
-              width={14}
-              height={14}
-              className="rounded-sm opacity-80 object-contain"
-            />
-            <span className="font-medium truncate min-w-0">{article.source_name}</span>
+          {/* Meta row — source eyebrow · section chip · time · close */}
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+            <span className="eyebrow text-[var(--color-ink-2)] truncate min-w-0">
+              {article.source_name}
+            </span>
+            <span className="opacity-30 text-xs">·</span>
             <SectionChip section={article.section_key} label={sectionLabel} />
             {readingTimeMin && (
-              <span className="shrink-0 opacity-70">· {readingTimeMin} min</span>
+              <span className="text-[11px] text-[var(--color-ink-3)] shrink-0">
+                · {readingTimeMin} min
+              </span>
             )}
-            <span className="ml-auto shrink-0">{ago}</span>
+            <span className="text-[11px] text-[var(--color-ink-3)] shrink-0">
+              {ago}
+            </span>
+            <button
+              onClick={onClose}
+              aria-label={tArt("close")}
+              className="ml-auto inline-flex p-2 -mr-1.5 rounded text-[var(--color-ink-3)] hover:text-[var(--color-ink-1)] hover:bg-[var(--color-paper-2)] transition-colors"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Title — proper heading size so the modal reads like a real article preview */}
-          <h2 className="text-lg sm:text-xl font-bold text-[var(--color-text)] leading-snug">
+          {/* Headline — display serif, reads like a front page */}
+          <h2 className="font-display text-2xl font-bold leading-[1.15] text-[var(--color-ink-1)] mb-3">
             {article.title}
           </h2>
+
+          {/* Thumbnail */}
+          {article.thumbnail_url ? (
+            <div className="relative w-full aspect-video bg-[var(--color-paper-3)] rounded-[2px] overflow-hidden mb-4">
+              <Image
+                src={article.thumbnail_url}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 100vw, 640px"
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ) : null}
 
           {/* Full article HTML — shown when sanitization leaves usable body.
               Falls back to the RSS description when the body was 100% chrome. */}
           {hasUsableContent ? (
             <div
-              className="article-content"
+              className="article-content dropcap"
               dangerouslySetInnerHTML={{ __html: cleanContent }}
             />
           ) : article.description ? (
-            <p className="text-sm text-[var(--color-text-2)] leading-relaxed">
+            <p className="dropcap text-[15px] text-[var(--color-ink-2)] leading-[1.75]">
               {article.description}
             </p>
-          ) : null}
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <SourceLogo
+                src={sourceLogo}
+                alt={article.source_name}
+                width={56}
+                height={56}
+                className="opacity-30 object-contain"
+                fallback={(
+                  <span className="text-3xl font-bold opacity-20 tracking-widest select-none uppercase">
+                    {sourceInitials}
+                  </span>
+                )}
+              />
+            </div>
+          )}
 
-          {/* CTA */}
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose}
-            className="flex items-center justify-center gap-2 w-full mt-2 py-3 rounded-[var(--radius-button)] bg-[var(--color-blue)] text-white text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all"
-          >
-            {tArt("read_full")} {article.source_name} →
-          </a>
+          {/* Footer: next step (F-16) + publisher link */}
+          <div className="border-t border-[var(--color-hairline)] mt-4 pt-3 flex items-center gap-2 flex-wrap">
+            {onNext && (
+              <button
+                onClick={onNext}
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4.5 py-2.5 rounded-[var(--radius-button)] bg-[var(--color-ink-blue)] border border-[var(--color-ink-blue)] text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
+              >
+                {tArt("next_in_diary")}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center min-h-[44px] px-4.5 py-2.5 rounded-[var(--radius-button)] border border-[var(--color-hairline)] text-[var(--color-ink-2)] text-[13px] font-semibold hover:border-[var(--color-ink-2)] transition-colors"
+            >
+              {tArt("view_on", { source: article.source_name })} ↗
+            </a>
+          </div>
 
           {/* Safe area spacer for mobile home indicator */}
           <div className="h-safe-bottom pb-2" />

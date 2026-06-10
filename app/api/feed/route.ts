@@ -7,12 +7,14 @@ import {
   eq,
   and,
   lt,
+  gt,
   desc,
   getTableColumns,
   sql,
   ilike,
   or,
   inArray,
+  count,
 } from "drizzle-orm";
 
 const PAGE_SIZE = 20;
@@ -187,7 +189,44 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ items: enriched, nextCursor });
+    // ── Section counts (F-29) — fresh articles per section in the last 24h ──
+    // Only computed on the first page so chips can show "Deportes 6" without
+    // a separate request. Pagination requests skip the extra query.
+    let sectionCounts: Record<string, number> | undefined;
+    if (!cursor) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const countRows = await db
+        .select({
+          section_key: articles.section_key,
+          fresh: count(articles.id),
+        })
+        .from(articles)
+        .innerJoin(
+          userSubscriptions,
+          and(
+            eq(userSubscriptions.source_id, articles.source_id),
+            eq(userSubscriptions.user_id, user.id)
+          )
+        )
+        .where(
+          and(
+            gt(articles.published_at, since),
+            sql`(
+              ${userSubscriptions.section_keys} IS NULL
+              OR ${articles.section_key}::text = ANY(${userSubscriptions.section_keys})
+            )`
+          )
+        )
+        .groupBy(articles.section_key);
+
+      sectionCounts = Object.fromEntries(
+        countRows
+          .filter((r) => r.section_key !== null)
+          .map((r) => [r.section_key as string, r.fresh])
+      );
+    }
+
+    return NextResponse.json({ items: enriched, nextCursor, sectionCounts });
   } catch (err) {
     console.error("[GET /api/feed]", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

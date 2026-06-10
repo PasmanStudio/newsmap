@@ -1,159 +1,335 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { PROFILES, type ProfileId } from "@/lib/profiles";
+import { SectionChip } from "@/components/ui/section-chip";
+import type { SectionKey } from "@/lib/db/schema";
 
-type Step = "pick" | "confirm";
+type Step = "pick" | "adjust" | "done";
 
+type SourceInfo = {
+  id: string;
+  name: string;
+  slug: string;
+  country_code: string;
+  available_sections: SectionKey[];
+};
+
+/** Square initials badge for a source (flag emojis don't render on Windows) */
+function SourceAvatar({ name }: { name: string }) {
+  return (
+    <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded bg-[var(--color-paper-3)] text-[10px] font-bold uppercase text-[var(--color-ink-2)]">
+      {name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)}
+    </span>
+  );
+}
+
+/**
+ * Onboarding (F-22..F-25) — newsprint two-step flow:
+ *   1. pick a reader profile (cards show the real sources inside)
+ *   2. adjust the selection source-by-source (Quitar/Añadir)
+ *   → "Tu diario está listo" close, then into the feed.
+ */
 export function OnboardingClient() {
   const t = useTranslations("Onboarding");
+  const tSec = useTranslations("Sections");
   const router = useRouter();
   const { locale } = useParams<{ locale: string }>();
 
   const [step, setStep] = useState<Step>("pick");
-  const [selected, setSelected] = useState<ProfileId | null>(null);
+  const [profileId, setProfileId] = useState<ProfileId | null>(null);
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const [sourcesBySlug, setSourcesBySlug] = useState<Map<string, SourceInfo>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedProfile = PROFILES.find((p) => p.id === selected);
+  // Load real source details (names, countries, sections) so the profile
+  // cards and the adjust step show actual publications, not just slugs.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/sources");
+        if (!res.ok) return;
+        const data: SourceInfo[] = await res.json();
+        if (!cancelled) {
+          setSourcesBySlug(new Map(data.map((s) => [s.slug, s])));
+        }
+      } catch {
+        // Cards fall back to humanized slugs when the request fails
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const profile = PROFILES.find((p) => p.id === profileId) ?? null;
+
+  const profileSources = useMemo(() => {
+    if (!profile) return [];
+    return profile.slugs.map(
+      (slug) =>
+        sourcesBySlug.get(slug) ?? {
+          id: slug,
+          name: slug.replace(/-/g, " "),
+          slug,
+          country_code: "",
+          available_sections: [] as SectionKey[],
+        }
+    );
+  }, [profile, sourcesBySlug]);
+
+  const activeSlugs = profile
+    ? profile.slugs.filter((s) => enabled[s])
+    : [];
+  const activeCount = activeSlugs.length;
+
+  function pick(id: ProfileId) {
+    setProfileId(id);
+    const p = PROFILES.find((x) => x.id === id)!;
+    setEnabled(Object.fromEntries(p.slugs.map((s) => [s, true])));
+    setStep("adjust");
+  }
 
   async function handleFinish() {
-    if (!selectedProfile) return;
+    if (activeCount === 0) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/subscriptions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slugs: selectedProfile.slugs }),
+        body: JSON.stringify({ slugs: activeSlugs }),
       });
       if (!res.ok) throw new Error("Failed to save subscriptions");
-      router.push(`/${locale}/feed`);
+      setStep("done");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("error_generic"));
+    } finally {
       setLoading(false);
     }
   }
 
-  if (step === "confirm" && selectedProfile) {
+  // ── Done — "Tu diario está listo" ──────────────────────────────────────────
+  if (step === "done") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center">
-            <p className="text-4xl mb-3">{selectedProfile.icon}</p>
-            <h1 className="text-xl font-bold text-[var(--color-text)]">
-              {t("step2_title")}
-            </h1>
-            <p className="mt-1 text-sm text-[var(--color-text-2)]">
-              {t("step2_subtitle")}
-            </p>
-          </div>
-
-          <div className="rounded-[var(--radius-card)] bg-[var(--color-bg-2)] border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
-            {selectedProfile.slugs.map((slug) => (
-              <div
-                key={slug}
-                className="flex items-center justify-between px-4 py-3"
-              >
-                <span className="text-sm text-[var(--color-text)] capitalize">
-                  {slug.replace(/-/g, " ")}
-                </span>
-                <span className="text-xs text-[var(--color-green)]">✓</span>
-              </div>
-            ))}
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-400 text-center">{error}</p>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStep("pick")}
-              className="flex-1 px-4 py-2.5 rounded-[var(--radius-button)] border border-[var(--color-border)] text-[var(--color-text-2)] text-sm hover:bg-[var(--color-bg-3)] transition-colors"
-            >
-              {t("btn_back")}
-            </button>
-            <button
-              onClick={handleFinish}
-              disabled={loading}
-              className="flex-1 px-4 py-2.5 rounded-[var(--radius-button)] bg-[var(--color-blue)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {loading ? "…" : t("btn_finish")}
-            </button>
-          </div>
+      <div className="max-w-[560px] mx-auto px-4 pt-18 text-center">
+        <div className="ornament mb-3.5 text-base" aria-hidden="true">
+          ❦
         </div>
+        <h1 className="font-display text-3xl font-black text-[var(--color-ink-1)] mb-2">
+          {t("done_title")}
+        </h1>
+        <p className="text-sm text-[var(--color-ink-2)]">
+          {t("done_desc", { count: activeCount })}
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push(`/${locale}/feed`)}
+          className="inline-flex items-center justify-center gap-2 mt-4 min-h-[44px] px-4.5 py-2.5 rounded-[var(--radius-button)] bg-[var(--color-ink-blue)] border border-[var(--color-ink-blue)] text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
+        >
+          {t("done_cta")}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">
+  // ── Step 1 — pick a reader profile ─────────────────────────────────────────
+  if (step === "pick") {
+    return (
+      <div className="max-w-[560px] mx-auto px-4 pt-9 pb-12">
+        <div className="text-center mb-5.5">
+          <p className="eyebrow text-[var(--color-oxblood)]">
+            {t("step1_eyebrow")}
+          </p>
+          <h1 className="font-display text-[28px] font-black text-[var(--color-ink-1)] my-1.5">
             {t("step1_title")}
           </h1>
-          <p className="mt-2 text-sm text-[var(--color-text-2)]">
+          <p className="text-[13.5px] text-[var(--color-ink-2)]">
             {t("step1_subtitle")}
           </p>
         </div>
 
-        <div className="grid gap-3">
-          {PROFILES.map((profile) => (
+        <div className="grid gap-2.5">
+          {PROFILES.map((p) => (
             <button
-              key={profile.id}
-              onClick={() => setSelected(profile.id)}
-              className={`w-full text-left p-4 rounded-[var(--radius-card)] border transition-colors ${
-                selected === profile.id
-                  ? "border-[var(--color-blue)] bg-[var(--color-blue)]/10"
-                  : "border-[var(--color-border)] bg-[var(--color-bg-2)] hover:border-[var(--color-text-3)]"
-              }`}
+              key={p.id}
+              type="button"
+              onClick={() => pick(p.id)}
+              className="text-left rounded-[var(--radius-card)] border border-[var(--color-hairline)] bg-white px-4 py-3.5 cursor-pointer hover:border-[var(--color-ink-blue)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{profile.icon}</span>
-                <div>
-                  <p className="font-medium text-[var(--color-text)]">
-                    {t(`profile_${profile.id}` as Parameters<typeof t>[0])}
-                  </p>
-                  <p className="text-xs text-[var(--color-text-2)] mt-0.5">
-                    {t(`profile_${profile.id}_desc` as Parameters<typeof t>[0])}
-                  </p>
-                </div>
-                {selected === profile.id && (
-                  <span className="ml-auto text-[var(--color-blue)]">✓</span>
+              <p className="font-display text-[17px] font-bold text-[var(--color-ink-1)] mb-0.5">
+                {t(`profile_${p.id}` as Parameters<typeof t>[0])}
+              </p>
+              <p className="text-[12.5px] text-[var(--color-ink-2)] mb-2">
+                {t(`profile_${p.id}_desc` as Parameters<typeof t>[0])}
+              </p>
+              <span className="inline-flex gap-1.5 flex-wrap">
+                {p.slugs.slice(0, 4).map((slug) => {
+                  const s = sourcesBySlug.get(slug);
+                  return (
+                    <span
+                      key={slug}
+                      className="inline-flex items-center gap-1.5 rounded-[3px] border border-[var(--color-hairline)] bg-[var(--color-paper-2)] px-1.5 py-[3px] text-[11px] text-[var(--color-ink-2)] capitalize"
+                    >
+                      {s?.country_code && (
+                        <span className="text-[8px] font-bold tracking-wider text-[var(--color-ink-3)]">
+                          {s.country_code}
+                        </span>
+                      )}
+                      {s?.name ?? slug.replace(/-/g, " ")}
+                    </span>
+                  );
+                })}
+                {p.slugs.length > 4 && (
+                  <span className="inline-flex items-center px-1.5 py-[3px] text-[11px] text-[var(--color-ink-3)]">
+                    +{p.slugs.length - 4}
+                  </span>
                 )}
-              </div>
+              </span>
             </button>
           ))}
 
-          {/* Custom / Map option */}
+          {/* Custom: pick sources on the map — returns into the flow (F-24) */}
           <button
+            type="button"
             onClick={() => router.push(`/${locale}/map`)}
-            className="w-full text-left p-4 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-2)] hover:border-[var(--color-text-3)] transition-colors"
+            className="flex items-center gap-3 text-left rounded-[var(--radius-card)] border border-[var(--color-hairline)] bg-white px-4 py-3.5 cursor-pointer hover:border-[var(--color-ink-blue)] transition-colors"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🗺</span>
-              <div>
-                <p className="font-medium text-[var(--color-text)]">
-                  {t("profile_custom")}
-                </p>
-                <p className="text-xs text-[var(--color-text-2)] mt-0.5">
-                  {t("profile_custom_desc")}
-                </p>
-              </div>
-            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-ink-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+              <path d="M2 12h20" />
+            </svg>
+            <span>
+              <span className="font-display block text-base font-bold text-[var(--color-ink-1)]">
+                {t("profile_custom")}
+              </span>
+              <span className="text-xs text-[var(--color-ink-3)]">
+                {t("profile_custom_desc")}
+              </span>
+            </span>
           </button>
         </div>
 
+        <p className="text-center mt-4">
+          <button
+            type="button"
+            onClick={() => router.push(`/${locale}/feed`)}
+            className="text-xs text-[var(--color-ink-3)] underline underline-offset-[3px] hover:text-[var(--color-ink-1)] cursor-pointer"
+          >
+            {t("skip")}
+          </button>
+        </p>
+      </div>
+    );
+  }
+
+  // ── Step 2 — adjust the selection ──────────────────────────────────────────
+  return (
+    <div className="max-w-[560px] mx-auto px-4 pt-9 pb-12">
+      <div className="text-center mb-4.5">
+        <p className="eyebrow text-[var(--color-oxblood)]">
+          {t("step2_eyebrow", {
+            profile: t(`profile_${profileId}` as Parameters<typeof t>[0]),
+          })}
+        </p>
+        <h1 className="font-display text-[26px] font-black text-[var(--color-ink-1)] my-1.5">
+          {t("step2_title")}
+        </h1>
+        <p className="text-[13px] text-[var(--color-ink-2)]">
+          {t("step2_count", { count: activeCount })}
+        </p>
+      </div>
+
+      <div className="rounded-[var(--radius-card)] border border-[var(--color-hairline)] bg-white mb-4">
+        {profileSources.map((s, i) => (
+          <div
+            key={s.slug}
+            className={`flex items-center gap-3 px-3.5 py-2.5 ${
+              i ? "border-t border-[var(--color-hairline)]" : ""
+            } ${enabled[s.slug] ? "" : "opacity-45"}`}
+          >
+            <SourceAvatar name={s.name} />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13.5px] font-semibold text-[var(--color-ink-1)] mb-1 capitalize">
+                {s.country_code && (
+                  <span className="mr-1.5 text-[9px] font-bold tracking-wider text-[var(--color-ink-3)] align-middle">
+                    {s.country_code}
+                  </span>
+                )}
+                {s.name}
+              </p>
+              {s.available_sections.length > 0 && (
+                <span className="inline-flex gap-1 flex-wrap">
+                  {s.available_sections.slice(0, 4).map((k) => (
+                    <SectionChip key={k} section={k} label={tSec(k)} />
+                  ))}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setEnabled((e) => ({ ...e, [s.slug]: !e[s.slug] }))
+              }
+              className="inline-flex items-center justify-center min-h-[34px] px-3 py-1 rounded-[var(--radius-button)] border border-[var(--color-hairline)] text-xs font-semibold text-[var(--color-ink-2)] hover:border-[var(--color-ink-2)] transition-colors"
+            >
+              {enabled[s.slug] ? t("btn_remove") : t("btn_add")}
+            </button>
+          </div>
+        ))}
         <button
-          disabled={!selected}
-          onClick={() => setStep("confirm")}
-          className="w-full px-4 py-3 rounded-[var(--radius-button)] bg-[var(--color-blue)] text-white font-medium hover:opacity-90 disabled:opacity-30 transition-opacity"
+          type="button"
+          onClick={() => router.push(`/${locale}/map`)}
+          className="flex items-center gap-2 w-full px-3.5 py-2.5 border-t border-[var(--color-hairline)] text-[12.5px] font-semibold text-[var(--color-ink-blue)] cursor-pointer hover:bg-[var(--color-paper-2)] transition-colors"
         >
-          {t("btn_continue")}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+          </svg>
+          {t("add_more_from_map")}
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-sm text-[var(--color-oxblood)] text-center mb-3">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => setStep("pick")}
+          className="flex-1 inline-flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-[var(--radius-button)] border border-[var(--color-hairline)] text-[13px] font-semibold text-[var(--color-ink-2)] hover:border-[var(--color-ink-2)] transition-colors"
+        >
+          {t("btn_back")}
+        </button>
+        <button
+          type="button"
+          disabled={activeCount === 0 || loading}
+          onClick={handleFinish}
+          className="flex-[1.6] inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-[var(--radius-button)] bg-[var(--color-ink-blue)] border border-[var(--color-ink-blue)] text-white text-[13px] font-semibold hover:opacity-90 disabled:opacity-45 disabled:cursor-default transition-opacity"
+        >
+          {loading ? "…" : t("btn_go_diary", { count: activeCount })}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>

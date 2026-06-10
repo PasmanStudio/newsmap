@@ -39,9 +39,21 @@
     "profile_custom_desc": "Elige tú mismo los países y fuentes que quieres seguir.",
     "step2_title": "Ajusta tu selección",
     "step2_subtitle": "Añade o quita fuentes según tus preferencias.",
+    "step1_eyebrow": "Paso 1 de 2",
+    "step2_eyebrow": "Paso 2 de 2 · {profile}",
+    "step2_count": "{count, plural, one {# fuente seleccionada} other {# fuentes seleccionadas}}",
     "btn_continue": "Continuar",
     "btn_back": "Volver",
-    "btn_finish": "Ir a mi feed"
+    "btn_finish": "Ir a mi feed",
+    "btn_remove": "Quitar",
+    "btn_add": "Añadir",
+    "add_more_from_map": "Añadir más fuentes desde el mapa",
+    "btn_go_diary": "Ir a mi diario ({count})",
+    "skip": "Saltar por ahora",
+    "done_title": "Tu diario está listo",
+    "done_desc": "{count, plural, one {# fuente} other {# fuentes}} · Edición de la mañana en preparación.",
+    "done_cta": "Ir a mi portada",
+    "error_generic": "Algo salió mal. Por favor, intenta de nuevo."
   },
   "Feed": {
     "title": "Mi feed",
@@ -52,10 +64,17 @@
     "load_more": "Cargar más",
     "filter_all": "Todo",
     "filter_by_section": "No hay artículos en esta sección aún.",
-    "search_placeholder": "Buscar artículos…",
-    "search_no_results": "No se encontraron artículos para \"{query}\".",
+    "search_placeholder": "Buscar en tu diario…",
+    "search_aria": "Buscar artículos",
+    "search_clear": "Limpiar búsqueda",
+    "search_no_results": "No se encontraron artículos para «{query}».",
     "reading_time": "{minutes} min de lectura",
-    "published_ago": "hace {time}"
+    "published_ago": "hace {time}",
+    "lead_eyebrow": "Portada",
+    "lead_footnote": "Portada: la historia más cubierta por tus fuentes en las últimas horas.",
+    "band_count": "{count, plural, one {# nota nueva} other {# notas nuevas}}",
+    "band_view_section": "Ver sección",
+    "ad_label": "Publicidad"
   },
   "Map": {
     "title": "Mapa de fuentes",
@@ -67,7 +86,28 @@
     "no_sources": "No hay fuentes disponibles para este país aún.",
     "panel_title": "Fuentes en {country}",
     "section_last": "No podés deseleccionar la única sección activa",
-    "view_news": "Ver noticias"
+    "view_news": "Ver noticias",
+    "explore_eyebrow": "Explorar fuentes",
+    "atlas_title": "El atlas de tu diario",
+    "atlas_subtitle": "Busca un país o un medio, o recorre la lista por región. Tu cobertura actual: {count, plural, one {# fuente} other {# fuentes}}.",
+    "atlas_search_placeholder": "Buscar país o fuente — ej. «Brasil» o «BBC»",
+    "atlas_search_aria": "Buscar país o fuente",
+    "atlas_no_results": "No se encontraron países ni fuentes para «{query}».",
+    "atlas_globe_note": "El globo interactivo vive como lámina de atlas más abajo — la lista es la vía rápida (y accesible).",
+    "globe_plate_title": "Lámina de atlas · el globo",
+    "sources_count": "{count, plural, one {# fuente} other {# fuentes}}",
+    "subscribed_dot": "{count, plural, one {# suscrita} other {# suscritas}}",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "view_front_page": "Ver portada de {country}",
+    "toast_added": "{name} añadido a tu diario · {count, plural, one {# fuente} other {# fuentes}}",
+    "toast_removed": "{name} quitado · {count, plural, one {# fuente} other {# fuentes}}",
+    "toast_view_diary": "Ver mi diario",
+    "region_latam": "América Latina",
+    "region_north_america": "Norteamérica",
+    "region_europe": "Europa",
+    "region_asia": "Asia",
+    "region_africa": "África"
   },
   "Auth": {
     "signin_title": "Iniciar sesión en NewsMap",
@@ -120,7 +160,12 @@
     "read_full": "Leer artículo completo",
     "source_label": "Fuente",
     "paywall_notice": "Este artículo puede estar detrás de un muro de pago.",
-    "share": "Compartir"
+    "share": "Compartir",
+    "full_read": "Lectura completa · {minutes} min",
+    "read_badge": "Leída",
+    "next_in_diary": "Siguiente en tu diario",
+    "view_on": "Ver en {source}",
+    "close": "Cerrar"
   },
   "News": {
     "meta_title": "Noticias de {country} hoy | NewsMap",
@@ -142,6 +187,10 @@
   },
   "Masthead": {
     "tagline": "Las noticias del mundo, una sola portada",
+    "presents": "NewsMap presenta",
+    "owner_title": "El Diario de {name}",
+    "stats": "{sources, plural, one {# fuente} other {# fuentes}} · {countries, plural, one {# país} other {# países}} · Sin algoritmo",
+    "edit_aria": "Editar mi diario",
     "edition_morning": "Edición de la mañana",
     "edition_afternoon": "Edición de la tarde",
     "edition_evening": "Edición de la noche"
@@ -155,10 +204,13 @@
     "read_this_week_short": "{count, plural, one {# leída} other {# leídas}}",
     "read_this_week_title": "Artículos leídos esta semana",
     "end_of_feed_title": "Llegaste al final",
-    "end_of_feed_desc": "Estás al día con todas las noticias. Volvé más tarde para ver las próximas actualizaciones — el feed se refresca cada 15 minutos.",
+    "end_of_feed_desc": "Estás al día con tu diario.",
+    "end_of_feed_stats": "{streak}° día seguido · {count, plural, one {# nota leída} other {# notas leídas}} esta semana.",
     "end_of_feed_cta_map": "Explorar el mapa",
     "end_of_feed_cta_saved": "Ver guardados ({count})",
-    "end_of_feed_cta_top": "Volver arriba"
+    "end_of_feed_cta_top": "Volver arriba",
+    "footer_privacy": "Privacidad",
+    "footer_sources": "Nuestras fuentes"
   },
   "Saved": {
     "eyebrow": "Tu colección",
@@ -199,7 +251,8 @@
     "description": "Comparamos cómo cubrieron esta noticia distintos medios. Cada enlace abre la versión publicada por esa fuente.",
     "close": "Cerrar",
     "badge_intl": "{sources} fuentes · {countries} países",
-    "intl_title": "Historia internacional · cubierta en {countries} países distintos"
+    "intl_title": "Historia internacional · cubierta en {countries} países distintos",
+    "pill_label": "{count, plural, one {# fuente cubre esto} other {# fuentes cubren esto}}"
   },
   "Activity": {
     "pulse": "Pulso mundial",

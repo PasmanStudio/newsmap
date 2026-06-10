@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/settings/sign-out-button";
 import { StatsBadge } from "./stats-badge";
 import { UserMenu } from "./user-menu";
+import { NavLinks } from "./nav-links";
 
 type Props = {
   locale: string;
@@ -28,14 +29,11 @@ export async function Nav({ locale }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const linkCls =
-    "inline-flex items-center px-2 sm:px-3 py-2 min-h-[44px] rounded text-sm text-[var(--color-text-2)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-2)] active:bg-[var(--color-bg-3)] transition-colors whitespace-nowrap shrink-0";
-
   return (
     <nav className="sticky top-0 z-40 h-12 sm:h-14 flex items-center px-3 sm:px-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]/90 backdrop-blur-sm">
       <Link
         href="/"
-        className="font-bold text-[var(--color-text)] mr-2 sm:mr-6 text-sm sm:text-base shrink-0"
+        className="font-display font-black text-[var(--color-text)] mr-2 sm:mr-6 text-sm sm:text-[17px] shrink-0"
       >
         NewsMap
       </Link>
@@ -43,13 +41,16 @@ export async function Nav({ locale }: Props) {
       {user ? (
         <>
           {/* Scrollable link row — overflows horizontally on very narrow viewports
-              rather than wrapping or squashing labels. */}
-          <div className="flex items-center gap-0.5 sm:gap-1 flex-1 overflow-x-auto scrollbar-hidden -mx-1 px-1">
-            <Link href="/feed" className={linkCls}>{t("feed")}</Link>
-            <Link href="/map" className={linkCls}>{t("map")}</Link>
-            <Link href="/compare/argentina/mexico" className={linkCls}>{t("compare")}</Link>
-            <Link href="/saved" className={linkCls}>{t("saved")}</Link>
-          </div>
+              rather than wrapping or squashing labels. Active page gets the
+              oxblood inset underline. */}
+          <NavLinks
+            items={[
+              { href: "/feed", label: t("feed") },
+              { href: "/map", label: t("map") },
+              { href: "/compare/argentina/mexico", label: t("compare") },
+              { href: "/saved", label: t("saved") },
+            ]}
+          />
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <StatsBadge />

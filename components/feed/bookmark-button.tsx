@@ -36,7 +36,7 @@ export function BookmarkButton({ article, size = "sm" }: Props) {
       title={saved ? t("remove_from_saved") : t("save_for_later")}
       className={`${dimensions} inline-flex items-center justify-center rounded-sm transition-colors ${
         saved
-          ? "text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+          ? "text-[var(--color-ink-blue)] hover:bg-[var(--color-ink-blue)]/10"
           : "text-[var(--color-text-3)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-2)]"
       }`}
     >
