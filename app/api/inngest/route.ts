@@ -6,6 +6,7 @@ import { resolveOgImage } from "@/inngest/functions/og-image";
 import { digestCron } from "@/inngest/functions/digest-cron";
 import { enrichContent } from "@/inngest/functions/enrich-content";
 import { clusterArticlesCron } from "@/inngest/functions/cluster-articles";
+import { cleanupCron } from "@/inngest/functions/cleanup";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -16,5 +17,6 @@ export const { GET, POST, PUT } = serve({
     digestCron,
     enrichContent,
     clusterArticlesCron,
+    cleanupCron,
   ],
 });

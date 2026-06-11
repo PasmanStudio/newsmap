@@ -23,7 +23,7 @@ export const clusterArticlesCron = inngest.createFunction(
   {
     id: "cluster-articles",
     name: "Cluster articles by story (Jaccard on titles)",
-    triggers: [{ cron: "TZ=UTC */5 * * * *" }],
+    triggers: [{ cron: "TZ=UTC */30 * * * *" }],
     /** Single concurrent run — clustering is a global operation */
     concurrency: { limit: 1 },
   },
